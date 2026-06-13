@@ -5,9 +5,9 @@ import (
 	"fmt"
 	"log"
 	"net"
-	"sort"
-	"sync"
+	"strings"
 
+	"github.com/aluoty/relay/internal/ascii"
 	"github.com/aluoty/relay/internal/protocol"
 	"github.com/aluoty/relay/internal/store"
 	"github.com/aluoty/relay/internal/tlsconfig"
@@ -15,87 +15,10 @@ import (
 
 type Config struct {
 	Listen  string
+	Groups  []string
 	TLS     tlsconfig.ServerConfig
 	History string
 	Limit   int
-}
-
-type room struct {
-	mu      sync.Mutex
-	clients map[net.Conn]string
-	store   *store.Store
-}
-
-func newRoom(st *store.Store) *room {
-	return &room{clients: make(map[net.Conn]string), store: st}
-}
-
-func (r *room) hasName(name string) bool {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for _, n := range r.clients {
-		if n == name {
-			return true
-		}
-	}
-	return false
-}
-
-func (r *room) add(conn net.Conn, name string) {
-	r.mu.Lock()
-	r.clients[conn] = name
-	r.mu.Unlock()
-}
-
-func (r *room) remove(conn net.Conn) (string, bool) {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	name, ok := r.clients[conn]
-	delete(r.clients, conn)
-	return name, ok
-}
-
-func (r *room) names() []string {
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	names := make([]string, 0, len(r.clients))
-	for _, name := range r.clients {
-		names = append(names, name)
-	}
-	sort.Strings(names)
-	return names
-}
-
-func (r *room) send(conn net.Conn, msg protocol.Message) {
-	protocol.Write(conn, msg)
-}
-
-func (r *room) broadcast(msg protocol.Message, skip net.Conn) {
-	data, err := protocol.MarshalLine(msg)
-	if err != nil {
-		return
-	}
-
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	for conn := range r.clients {
-		if conn == skip {
-			continue
-		}
-		conn.Write(data)
-	}
-}
-
-func (r *room) broadcastAll(msg protocol.Message) {
-	r.broadcast(msg, nil)
-}
-
-func (r *room) sendUsers(conn net.Conn) {
-	r.send(conn, protocol.Message{Type: protocol.TypeUsers, Users: r.names()})
-}
-
-func (r *room) broadcastUsers() {
-	r.broadcastAll(protocol.Message{Type: protocol.TypeUsers, Users: r.names()})
 }
 
 func Run(cfg Config) error {
@@ -110,6 +33,20 @@ func Run(cfg Config) error {
 	}
 	defer ln.Close()
 
+	logStartup(cfg)
+
+	h := newHub(st, cfg.Groups)
+	for {
+		conn, err := ln.Accept()
+		if err != nil {
+			log.Printf("accept: %v", err)
+			continue
+		}
+		go serveClient(h, conn)
+	}
+}
+
+func logStartup(cfg Config) {
 	if cfg.TLS.Enabled() {
 		log.Printf("relay listening on %s (tls)", cfg.Listen)
 	} else {
@@ -118,62 +55,113 @@ func Run(cfg Config) error {
 	if cfg.History != "" {
 		log.Printf("history: %s (limit %d)", cfg.History, cfg.Limit)
 	}
-
-	room := newRoom(st)
-	for {
-		conn, err := ln.Accept()
-		if err != nil {
-			log.Printf("accept: %v", err)
-			continue
-		}
-		go handleClient(room, conn)
-	}
+	log.Printf("groups: %s", strings.Join(normalizeGroupList(cfg.Groups), ", "))
 }
 
-func handleClient(room *room, conn net.Conn) {
+func normalizeGroupList(groups []string) []string {
+	h := newHub(nil, groups)
+	return h.groupNames()
+}
+
+func serveClient(h *hub, conn net.Conn) {
 	defer conn.Close()
 
 	reader := bufio.NewReader(conn)
 	join, err := protocol.Read(reader)
 	if err != nil || join.Type != protocol.TypeJoin || join.From == "" {
-		protocol.Write(conn, protocol.Message{Type: protocol.TypeSys, Text: "expected join message"})
+		protocol.Write(conn, protocol.Sys("expected join message"))
 		return
 	}
 
-	name := join.From
-	if room.hasName(name) {
-		protocol.Write(conn, protocol.Message{Type: protocol.TypeSys, Text: fmt.Sprintf("name %q is already in use", name)})
+	name := strings.TrimSpace(join.From)
+	group := normalizeGroup(join.Group)
+	if group == "" {
+		group = protocol.DefaultGroup
+	}
+
+	avatar, err := ascii.Resolve(join.Avatar)
+	if err != nil && join.Avatar != "" {
+		protocol.Write(conn, protocol.Sys(err.Error()))
 		return
 	}
 
-	room.add(conn, name)
-
-	for _, msg := range room.store.History() {
-		room.send(conn, msg)
+	if !validGroup(group) {
+		protocol.Write(conn, protocol.Sys(fmt.Sprintf("invalid group %q", group)))
+		return
 	}
 
-	room.sendUsers(conn)
-	room.send(conn, protocol.Message{Type: protocol.TypeSys, Text: fmt.Sprintf("connected as %s", name)})
-	room.broadcast(protocol.Message{Type: protocol.TypeJoin, From: name}, conn)
-	room.broadcastUsers()
+	if h.hasName(name) {
+		protocol.Write(conn, protocol.Sys(fmt.Sprintf("name %q is already in use", name)))
+		return
+	}
+
+	if !h.groupExists(group) {
+		protocol.Write(conn, protocol.Sys(fmt.Sprintf("group %q does not exist (try /groups)", group)))
+		return
+	}
+
+	s := newSession(conn, name, group, avatar)
+	h.register(s)
+	h.welcome(s)
 
 	for {
 		msg, err := protocol.Read(reader)
 		if err != nil {
 			break
 		}
-		if msg.Type != protocol.TypeChat || msg.Text == "" {
-			continue
+		if err := dispatch(h, s, msg); err != nil {
+			h.sendToSession(s, protocol.Sys(err.Error()))
 		}
-		out := protocol.Message{Type: protocol.TypeChat, From: name, Text: msg.Text}
-		if err := room.store.Append(out); err != nil {
-			log.Printf("history append: %v", err)
-		}
-		room.broadcastAll(out)
 	}
 
-	if left, ok := room.remove(conn); ok {
-		room.broadcastAll(protocol.Message{Type: protocol.TypeLeave, From: left})
-		room.broadcastUsers()
+	if _, ok := h.unregister(conn); ok {
+		h.leave(s)
 	}
+}
+
+func dispatch(h *hub, s *session, msg protocol.Message) error {
+	switch msg.Type {
+	case protocol.TypeChat:
+		text := strings.TrimSpace(msg.Text)
+		if text == "" {
+			return nil
+		}
+		return h.handleChat(s, text)
+
+	case protocol.TypeSwitch:
+		group := normalizeGroup(msg.Group)
+		old := s.group
+		if err := h.switchGroup(s, group); err != nil {
+			return err
+		}
+		if old != s.group {
+			h.leaveSnapshot(old, s)
+			h.sendToSession(s, protocol.Message{Type: protocol.TypeSwitch, Group: s.group})
+			h.enterGroup(s)
+		}
+		return nil
+
+	case protocol.TypeCreate:
+		name := normalizeGroup(msg.Text)
+		if err := h.createGroup(name); err != nil {
+			return err
+		}
+		h.broadcastGroupsAll()
+		h.sendToSession(s, protocol.Sys(fmt.Sprintf("created group #%s", name)))
+		return nil
+
+	case protocol.TypeAvatar:
+		avatar, err := ascii.Resolve(msg.Avatar)
+		if err != nil {
+			return err
+		}
+		h.setAvatar(s, avatar)
+		return nil
+	}
+	return nil
+}
+
+func (h *hub) leaveSnapshot(group string, s *session) {
+	h.broadcastGroupAll(group, protocol.Message{Type: protocol.TypeLeave, From: s.name, Group: group})
+	h.broadcastGroupUsers(group)
 }

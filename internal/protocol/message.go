@@ -7,18 +7,28 @@ import (
 )
 
 const (
-	TypeJoin  = "join"
-	TypeLeave = "leave"
-	TypeChat  = "msg"
-	TypeSys   = "sys"
-	TypeUsers = "users"
+	TypeJoin   = "join"
+	TypeLeave  = "leave"
+	TypeChat   = "msg"
+	TypeSys    = "sys"
+	TypeUsers  = "users"
+	TypeGroups = "groups"
+	TypeSwitch = "switch"
+	TypeCreate = "create"
+	TypeAvatar = "avatar"
 )
 
+const DefaultGroup = "general"
+
 type Message struct {
-	Type  string   `json:"t"`
-	From  string   `json:"f,omitempty"`
-	Text  string   `json:"x,omitempty"`
-	Users []string `json:"u,omitempty"`
+	Type     string            `json:"t"`
+	From     string            `json:"f,omitempty"`
+	Text     string            `json:"x,omitempty"`
+	Group    string            `json:"g,omitempty"`
+	Users    []string          `json:"u,omitempty"`
+	Groups   []string          `json:"gs,omitempty"`
+	Avatar   string            `json:"a,omitempty"`
+	Profiles map[string]string `json:"p,omitempty"`
 }
 
 func Write(w io.Writer, msg Message) error {
@@ -47,4 +57,35 @@ func MarshalLine(msg Message) ([]byte, error) {
 		return nil, err
 	}
 	return append(data, '\n'), nil
+}
+
+func Join(name, group, avatar string) Message {
+	if group == "" {
+		group = DefaultGroup
+	}
+	return Message{Type: TypeJoin, From: name, Group: group, Avatar: avatar}
+}
+
+func Chat(text, group string) Message {
+	return Message{Type: TypeChat, Text: text, Group: group}
+}
+
+func Switch(group string) Message {
+	return Message{Type: TypeSwitch, Group: group}
+}
+
+func CreateGroup(name string) Message {
+	return Message{Type: TypeCreate, Text: name}
+}
+
+func SetAvatar(avatar string) Message {
+	return Message{Type: TypeAvatar, Avatar: avatar}
+}
+
+func Sys(text string) Message {
+	return Message{Type: TypeSys, Text: text}
+}
+
+func SysGroup(group, text string) Message {
+	return Message{Type: TypeSys, Group: group, Text: text}
 }

@@ -10,10 +10,10 @@ import (
 )
 
 type Store struct {
-	path   string
-	limit  int
-	mu     sync.RWMutex
-	chat   []protocol.Message
+	path  string
+	limit int
+	mu    sync.RWMutex
+	chat  []protocol.Message
 }
 
 func Open(path string, limit int) (*Store, error) {
@@ -44,9 +44,13 @@ func (s *Store) load() error {
 		if err := json.Unmarshal(scanner.Bytes(), &msg); err != nil {
 			continue
 		}
-		if msg.Type == protocol.TypeChat {
-			s.chat = append(s.chat, msg)
+		if msg.Type != protocol.TypeChat {
+			continue
 		}
+		if msg.Group == "" {
+			msg.Group = protocol.DefaultGroup
+		}
+		s.chat = append(s.chat, msg)
 	}
 	if err := scanner.Err(); err != nil {
 		return err
@@ -55,17 +59,33 @@ func (s *Store) load() error {
 	return nil
 }
 
-func (s *Store) History() []protocol.Message {
+func (s *Store) History(group string) []protocol.Message {
+	if group == "" {
+		group = protocol.DefaultGroup
+	}
+
 	s.mu.RLock()
 	defer s.mu.RUnlock()
-	out := make([]protocol.Message, len(s.chat))
-	copy(out, s.chat)
+
+	out := make([]protocol.Message, 0)
+	for _, msg := range s.chat {
+		g := msg.Group
+		if g == "" {
+			g = protocol.DefaultGroup
+		}
+		if g == group {
+			out = append(out, msg)
+		}
+	}
 	return out
 }
 
 func (s *Store) Append(msg protocol.Message) error {
 	if msg.Type != protocol.TypeChat {
 		return nil
+	}
+	if msg.Group == "" {
+		msg.Group = protocol.DefaultGroup
 	}
 
 	s.mu.Lock()
