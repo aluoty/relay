@@ -4,8 +4,7 @@ Lightweight terminal chat relay built with Go and [tview](https://github.com/riv
 
 One binary runs as a TCP relay server or as a terminal client. Chat is organized into groups (like Discord channels), users get ASCII avatars, messages persist as JSONL, and TLS is optional.
 
-Best used when placed in binary paths
-To check:
+Best used when placed in binary paths, to check:
 ```bash
 echo $PATH
 ```
@@ -13,7 +12,7 @@ Later after compiling, place the binary into one of those paths, so that
 ```bash
 relay
 ```
-can be used, otherwise be in the /relay directory and use
+can be used, otherwise be in the relay/ directory and use
 ```bash
 ./relay
 ```
