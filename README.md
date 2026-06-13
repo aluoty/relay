@@ -99,8 +99,10 @@ relay connect -addr chat.example.com:9000 -tls
 | Action | How |
 |--------|-----|
 | Command | `/group random` or `/g random` |
-| Sidebar | `Ctrl+G` to focus groups, `Enter` to switch |
-| Quick keys | Press `1`–`9` while the group list is focused |
+| Focus list | `Ctrl+G` — press again to return to chat |
+| Sidebar | `Enter` on a group to switch (returns to chat) |
+| Quick keys | `1`–`9` while the group list is focused |
+| Leave sidebar | `Esc` — always returns to message input |
 
 ### Avatars (ASCII + emoji)
 
@@ -156,7 +158,7 @@ hello :wave: good job :+1: :tada:
 │ # general│ │ =^..^= alice: hello       │ │ =^..^= alice
 │ # random │ │ [o_o] bob: hi             │ │ [o_o] bob
 └──────────┘ └────────────────────────────┘ └──────────┘
-               connected to localhost:9000 as alice in #general  | Ctrl+G groups | 1-9 switch
+               connected to localhost:9000 as alice in #general  | Ctrl+G groups | Esc chat
                Message: _
 ```
 

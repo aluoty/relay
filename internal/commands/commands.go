@@ -63,35 +63,38 @@ func normalizeName(name string) string {
 	return strings.ToLower(name)
 }
 
-func HelpText() string {
+// HelpFormatted returns tview dynamic-color help text for the modal overlay.
+func HelpFormatted() string {
+	ascii := "cat, bot, star_eyes, happy, sad, wink, awkward, shrug, surprised, angry, bear, robot"
+	emoji := "smile, party, wave_e, heart_e, thumbsup, cat_e, rocket, pizza, coffee"
+
 	return strings.TrimSpace(`
-Commands:
-  /group <name>     switch channel (e.g. /group random)
-  /groups           list channels
-  /create <name>    create a new channel
-  /avatar <text>    set avatar (ASCII, preset, or :emoji: alias)
-  /help             show this help
+[yellow]Commands[white]
+  [green]/group[white] [gray]<name>[white]      switch channel       [gray](/g, /channel)[white]
+  [green]/groups[white]                         list channels
+  [green]/create[white] [gray]<name>[white]     create a channel
+  [green]/avatar[white] [gray]<text>[white]      set avatar           [gray](/char, /me)[white]
+  [green]/help[white]                            show this help
 
-Groups sidebar:
-  Ctrl+G            focus group list
-  Enter             switch to highlighted group
-  1-9               quick switch when group list is focused
+[yellow]Navigation[white]
+  [green]Ctrl+G[white]     focus group list  [gray](toggle — press again to return)[white]
+  [green]Esc[white]         return to message input
+  [green]Tab[white]         cycle input → groups → users → input
+  [green]Enter[white]       send message  [gray](or switch group when list focused)[white]
+  [green]1-9[white]         quick group switch  [gray](when group list focused)[white]
+  [green]Ctrl+C[white]      quit
 
-Chat emojis:
-  Type :smile: :wave: :+1: :tada: etc. (github.com/enescakir/emoji)
+[yellow]Chat emojis[white]
+  Type GitHub-style aliases in messages:
+    [gray]:wave:  :smile:  :+1:  :tada:  :heart:[white]
 
-Avatar presets:
-  ASCII: ` + avatarHelpASCII() + `
-  Emoji: ` + avatarHelpEmoji() + `
+[yellow]Avatars[white]
+  ASCII preset:   [gray]/avatar star_eyes[white]   →  [gray]*_*[white]
+  Emoji preset:   [gray]/avatar smile[white]       →  😄
+  Emoji alias:    [gray]/avatar :cat:[white]
+  Custom ASCII:   [gray]/avatar ^_^[white]
+
+  ASCII presets:  [gray]` + ascii + `[white]
+  Emoji presets:  [gray]` + emoji + `[white]
 `)
-}
-
-func avatarHelpASCII() string {
-	picks := []string{"cat", "bot", "star_eyes", "happy", "sad", "wink", "awkward", "shrug", "..."}
-	return strings.Join(picks, ", ")
-}
-
-func avatarHelpEmoji() string {
-	picks := []string{"smile", "wave_e", "heart_e", "party", "thumbsup", "cat_e", "..."}
-	return strings.Join(picks, ", ")
 }

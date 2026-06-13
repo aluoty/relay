@@ -108,7 +108,10 @@ func Resolve(raw string) (string, error) {
 			return sanitizeDisplay(parsed)
 		}
 	}
-	return sanitizeASCII(raw)
+	if isASCIIOnly(raw) {
+		return sanitizeASCII(raw)
+	}
+	return sanitizeDisplay(raw)
 }
 
 func ParseText(text string) string {
@@ -166,6 +169,18 @@ func keepASCII(r rune) rune {
 		return r
 	}
 	return -1
+}
+
+func isASCIIOnly(s string) bool {
+	for _, r := range s {
+		if r == '\n' {
+			continue
+		}
+		if r < 0x20 || r > 0x7E {
+			return false
+		}
+	}
+	return true
 }
 
 func Prefix(v string) string {

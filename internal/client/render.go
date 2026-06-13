@@ -2,7 +2,6 @@ package client
 
 import (
 	"sort"
-	"strings"
 
 	"github.com/aluoty/relay/internal/avatar"
 )
@@ -63,33 +62,43 @@ func (s *state) setUsers(users []string, profiles map[string]string) {
 }
 
 func (s *state) statusText() string {
-	return strings.TrimSpace(formatStatus(s.addr, s.self, s.group))
+	return formatStatus(s.addr, s.self, s.group)
 }
 
 func formatStatus(addr, self, group string) string {
-	return " [gray]connected to " + addr + " as [green]" + self + "[white] in [#" + group + "]  [gray]| Ctrl+G groups | 1-9 switch"
+	return " [gray]connected to " + escapeTview(addr) + " as [green]" + escapeTview(self) +
+		"[white] in [#" + escapeTview(group) + "]  [gray]| Ctrl+G groups | Esc chat"
+}
+
+func formatGroupsStatus() string {
+	return " [yellow]groups[white]  [gray]Enter switch · 1-9 quick · Esc back to chat · Ctrl+G toggle"
 }
 
 func formatGroupLabel(name, current string) string {
+	prefix := "  # "
 	if name == current {
-		return "[green]# " + name
+		prefix = "● # "
 	}
-	return "# " + name
+	return prefix + name
 }
 
 func formatUserLine(name, v, self string) string {
-	label := avatar.FormatSpeaker(v, name)
+	speaker := escapeTview(avatar.FormatSpeaker(v, name))
 	if name == self {
-		return "[green]" + label + "[white]"
+		return "[green]" + speaker + "[white]"
 	}
-	return label
+	return speaker
 }
 
 func formatChatLine(from, v, text, self string) string {
-	speaker := avatar.FormatSpeaker(v, from)
-	text = avatar.ParseText(text)
+	speaker := escapeTview(avatar.FormatSpeaker(v, from))
+	text = escapeTview(avatar.ParseText(text))
 	if from == self {
 		return "[green]" + speaker + ":[white] " + text
 	}
 	return "[yellow]" + speaker + ":[white] " + text
+}
+
+func formatSystemLine(text string) string {
+	return "[gray]* " + escapeTview(text)
 }
