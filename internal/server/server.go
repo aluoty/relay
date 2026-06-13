@@ -7,7 +7,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/aluoty/relay/internal/ascii"
+	"github.com/aluoty/relay/internal/avatar"
 	"github.com/aluoty/relay/internal/protocol"
 	"github.com/aluoty/relay/internal/store"
 	"github.com/aluoty/relay/internal/tlsconfig"
@@ -79,7 +79,7 @@ func serveClient(h *hub, conn net.Conn) {
 		group = protocol.DefaultGroup
 	}
 
-	avatar, err := ascii.Resolve(join.Avatar)
+	avatar, err := avatar.Resolve(join.Avatar)
 	if err != nil && join.Avatar != "" {
 		protocol.Write(conn, protocol.Sys(err.Error()))
 		return
@@ -151,7 +151,7 @@ func dispatch(h *hub, s *session, msg protocol.Message) error {
 		return nil
 
 	case protocol.TypeAvatar:
-		avatar, err := ascii.Resolve(msg.Avatar)
+		avatar, err := avatar.Resolve(msg.Avatar)
 		if err != nil {
 			return err
 		}

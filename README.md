@@ -91,36 +91,62 @@ relay connect -addr chat.example.com:9000 -tls
 | `/group <name>` | Switch channel (alias: `/g`, `/channel`) |
 | `/groups` | List available channels |
 | `/create <name>` | Create a new channel |
-| `/avatar <text>` | Set your ASCII avatar (alias: `/char`, `/me`) |
+| `/avatar <text>` | Set avatar — ASCII preset, emoji alias, or custom text |
 | `/help` | Show command help |
 
-Select a group in the left sidebar and press Enter to switch channels.
+### Switching groups
 
-### ASCII avatars
+| Action | How |
+|--------|-----|
+| Command | `/group random` or `/g random` |
+| Sidebar | `Ctrl+G` to focus groups, `Enter` to switch |
+| Quick keys | Press `1`–`9` while the group list is focused |
+
+### Avatars (ASCII + emoji)
 
 Set a custom ASCII avatar:
 
 ```text
+/avatar *_*
+/avatar ^_^
 /avatar >:)
-/avatar |==>
 ```
 
-Use a built-in preset:
+Use an ASCII preset:
 
 ```text
 /avatar cat
-/avatar bot
-/avatar wave
+/avatar star_eyes
+/avatar awkward
 ```
 
-Presets: `cat`, `bot`, `fox`, `star`, `wave`, `face`, `cool`, `heart`, `ghost`, `sword`, `skull`
+Use an emoji preset (via [enescakir/emoji](https://github.com/enescakir/emoji)):
 
-Avatars appear next to your name in chat and in the user list. Only printable ASCII is allowed (up to 3 lines, 16 characters wide).
+```text
+/avatar smile
+/avatar party
+/avatar :wave:
+/avatar :cat:
+```
 
-Multi-line avatars use `\n` in the string:
+ASCII presets include: `cat`, `bot`, `star_eyes`, `happy`, `sad`, `wink`, `awkward`, `shrug`, `surprised`, `angry`, `bear`, `robot`, and more.
+
+Emoji presets include: `smile`, `grin`, `party`, `thumbsup`, `wave_e`, `heart_e`, `cat_e`, `rocket`, and more — or any `:alias:` supported by the emoji library.
+
+Avatars appear next to your name in chat and in the user list (up to 3 lines, 16 columns wide).
+
+Multi-line ASCII avatars use `\n`:
 
 ```text
 /avatar /\\_/\\\n( o.o )
+```
+
+### Chat emojis
+
+Type `:alias:` shorthand in messages — rendered with [enescakir/emoji](https://github.com/enescakir/emoji):
+
+```text
+hello :wave: good job :+1: :tada:
 ```
 
 ## UI layout
@@ -130,7 +156,7 @@ Multi-line avatars use `\n` in the string:
 │ # general│ │ =^..^= alice: hello       │ │ =^..^= alice
 │ # random │ │ [o_o] bob: hi             │ │ [o_o] bob
 └──────────┘ └────────────────────────────┘ └──────────┘
-               connected to localhost:9000 as alice in #general
+               connected to localhost:9000 as alice in #general  | Ctrl+G groups | 1-9 switch
                Message: _
 ```
 
@@ -162,7 +188,7 @@ relay connect -tls -tls-ca ca.pem     # custom CA
 ```text
 cmd/relay/          CLI entrypoint
 internal/
-  ascii/            avatar presets and validation
+  avatar/           ASCII + emoji avatars and text parsing
   client/           tview terminal client
   commands/         slash-command parsing
   protocol/         wire format and message helpers

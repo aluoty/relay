@@ -6,7 +6,7 @@ import (
 	"net"
 	"strings"
 
-	"github.com/aluoty/relay/internal/ascii"
+	"github.com/aluoty/relay/internal/avatar"
 	"github.com/aluoty/relay/internal/commands"
 	"github.com/aluoty/relay/internal/protocol"
 	"github.com/gdamore/tcell/v2"
@@ -15,6 +15,7 @@ import (
 
 type ui struct {
 	app      *tview.Application
+	conn     net.Conn
 	state    *state
 	messages *tview.TextView
 	groups   *tview.List
@@ -28,12 +29,13 @@ func newUI(addr, name, group, avatar string) *ui {
 }
 
 func (u *ui) run(conn net.Conn) error {
-	u.build(conn)
+	u.conn = conn
+	u.build()
 	go u.readLoop(conn)
 	return u.app.Run()
 }
 
-func (u *ui) build(conn net.Conn) {
+func (u *ui) build() {
 	u.app = tview.NewApplication()
 
 	u.messages = tview.NewTextView().
@@ -46,10 +48,7 @@ func (u *ui) build(conn net.Conn) {
 		ShowSecondaryText(false).
 		SetHighlightFullLine(true).
 		SetSelectedFunc(func(index int, _, _ string, _ rune) {
-			if index < 0 || index >= len(u.state.groups) {
-				return
-			}
-			u.switchGroup(conn, u.state.groups[index])
+			u.selectGroup(index)
 		})
 	u.groups.SetBorder(true).SetTitle(" Groups ")
 
@@ -88,22 +87,56 @@ func (u *ui) build(conn net.Conn) {
 		if text == "" {
 			return
 		}
-		u.handleInput(conn, text)
+		u.handleInput(text)
 	})
 
-	u.app.SetInputCapture(func(event *tcell.EventKey) *tcell.EventKey {
-		switch event.Key() {
-		case tcell.KeyCtrlC:
-			u.app.Stop()
-			return nil
-		case tcell.KeyTab:
-			u.cycleFocus()
-			return nil
-		}
-		return event
-	})
+	u.app.SetInputCapture(u.captureInput)
 
 	u.app.SetRoot(root, true).SetFocus(u.input)
+}
+
+func (u *ui) captureInput(event *tcell.EventKey) *tcell.EventKey {
+	switch event.Key() {
+	case tcell.KeyCtrlC:
+		u.app.Stop()
+		return nil
+	case tcell.KeyTab:
+		u.cycleFocus()
+		return nil
+	case tcell.KeyCtrlG:
+		u.app.SetFocus(u.groups)
+		u.highlightCurrentGroup()
+		return nil
+	}
+
+	if event.Key() == tcell.KeyRune && u.focusedGroups() {
+		if event.Rune() >= '1' && event.Rune() <= '9' {
+			u.selectGroup(int(event.Rune() - '1'))
+			return nil
+		}
+	}
+	return event
+}
+
+func (u *ui) focusedGroups() bool {
+	_, ok := u.app.GetFocus().(*tview.List)
+	return ok
+}
+
+func (u *ui) selectGroup(index int) {
+	if index < 0 || index >= len(u.state.groups) {
+		return
+	}
+	u.switchGroup(u.state.groups[index])
+}
+
+func (u *ui) highlightCurrentGroup() {
+	for i, name := range u.state.groups {
+		if name == u.state.group {
+			u.groups.SetCurrentItem(i)
+			return
+		}
+	}
 }
 
 func (u *ui) cycleFocus() {
@@ -152,7 +185,7 @@ func (u *ui) handleMessage(msg protocol.Message) {
 		u.printChat(msg.From, msg.Avatar, msg.Text)
 	case protocol.TypeJoin:
 		if msg.Group == u.state.group {
-			u.printSystem(fmt.Sprintf("[gray]* %s joined #%s", ascii.FormatSpeaker(msg.Avatar, msg.From), msg.Group))
+			u.printSystem(fmt.Sprintf("[gray]* %s joined #%s", avatar.FormatSpeaker(msg.Avatar, msg.From), msg.Group))
 		}
 	case protocol.TypeLeave:
 		if msg.Group == u.state.group {
@@ -178,57 +211,57 @@ func (u *ui) handleMessage(msg protocol.Message) {
 		u.state.setUserAvatar(msg.From, msg.Avatar)
 		u.renderUsers()
 		if msg.From != u.self() {
-			u.printSystem(fmt.Sprintf("[gray]* %s updated avatar to %s", msg.From, ascii.Prefix(msg.Avatar)))
+			u.printSystem(fmt.Sprintf("[gray]* %s updated avatar to %s", msg.From, avatar.Prefix(msg.Avatar)))
 		}
 	}
 	u.messages.ScrollToEnd()
 }
 
-func (u *ui) handleInput(conn net.Conn, text string) {
+func (u *ui) handleInput(text string) {
 	cmd, payload := commands.Parse(text)
 	switch cmd.Kind {
 	case commands.KindNone:
-		u.sendChat(conn, payload)
+		u.sendChat(payload)
 	case commands.KindHelp:
 		u.printSystem("[gray]" + strings.ReplaceAll(commands.HelpText(), "\n", "\n[gray]"))
 	case commands.KindGroup:
-		u.switchGroup(conn, cmd.Arg)
+		u.switchGroup(cmd.Arg)
 	case commands.KindGroups:
 		u.printSystem(fmt.Sprintf("[gray]* groups: %s", strings.Join(u.state.groups, ", ")))
 	case commands.KindCreate:
-		u.send(conn, protocol.CreateGroup(cmd.Arg))
+		u.send(protocol.CreateGroup(cmd.Arg))
 	case commands.KindAvatar:
-		u.setAvatar(conn, cmd.Arg)
+		u.setAvatar(cmd.Arg)
 	}
 }
 
-func (u *ui) sendChat(conn net.Conn, text string) {
-	if err := protocol.Write(conn, protocol.Chat(text, u.state.group)); err != nil {
+func (u *ui) sendChat(text string) {
+	if err := protocol.Write(u.conn, protocol.Chat(text, u.state.group)); err != nil {
 		u.printSystem(fmt.Sprintf("[red]* send failed: %v", err))
 	}
 }
 
-func (u *ui) switchGroup(conn net.Conn, group string) {
+func (u *ui) switchGroup(group string) {
 	group = strings.TrimPrefix(strings.TrimSpace(strings.ToLower(group)), "#")
 	if group == "" || group == u.state.group {
 		return
 	}
-	u.send(conn, protocol.Switch(group))
+	u.send(protocol.Switch(group))
 }
 
-func (u *ui) setAvatar(conn net.Conn, raw string) {
-	avatar, err := ascii.Resolve(raw)
+func (u *ui) setAvatar(raw string) {
+	v, err := avatar.Resolve(raw)
 	if err != nil {
 		u.printSystem(fmt.Sprintf("[red]* %v", err))
 		return
 	}
-	u.state.setSelfAvatar(avatar)
+	u.state.setSelfAvatar(v)
 	u.renderUsers()
-	u.send(conn, protocol.SetAvatar(avatar))
+	u.send(protocol.SetAvatar(v))
 }
 
-func (u *ui) send(conn net.Conn, msg protocol.Message) {
-	if err := protocol.Write(conn, msg); err != nil {
+func (u *ui) send(msg protocol.Message) {
+	if err := protocol.Write(u.conn, msg); err != nil {
 		u.printSystem(fmt.Sprintf("[red]* send failed: %v", err))
 	}
 }
@@ -246,9 +279,14 @@ func (u *ui) printSystem(text string) {
 
 func (u *ui) renderGroups() {
 	u.groups.Clear()
-	for _, name := range u.state.groups {
+	current := 0
+	for i, name := range u.state.groups {
 		u.groups.AddItem(formatGroupLabel(name, u.state.group), "", 0, nil)
+		if name == u.state.group {
+			current = i
+		}
 	}
+	u.groups.SetCurrentItem(current)
 }
 
 func (u *ui) renderUsers() {
@@ -269,4 +307,5 @@ func (u *ui) onGroupChanged(group string) {
 	u.status.SetText(u.state.statusText())
 	u.renderGroups()
 	u.renderUsers()
+	u.highlightCurrentGroup()
 }

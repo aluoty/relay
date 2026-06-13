@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/aluoty/relay/internal/ascii"
+	"github.com/aluoty/relay/internal/avatar"
 	"github.com/aluoty/relay/internal/protocol"
 	"github.com/aluoty/relay/internal/tlsconfig"
 )
@@ -24,7 +24,7 @@ func Run(cfg Config) error {
 	}
 	defer conn.Close()
 
-	avatar, err := ascii.Resolve(cfg.Avatar)
+	avatar, err := avatar.Resolve(cfg.Avatar)
 	if err != nil && cfg.Avatar != "" {
 		return err
 	}

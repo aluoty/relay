@@ -2,6 +2,8 @@ package commands
 
 import (
 	"strings"
+
+	"github.com/aluoty/relay/internal/avatar"
 )
 
 type Kind int
@@ -23,7 +25,7 @@ type Command struct {
 func Parse(input string) (Command, string) {
 	input = strings.TrimSpace(input)
 	if !strings.HasPrefix(input, "/") {
-		return Command{}, input
+		return Command{}, avatar.ParseText(input)
 	}
 
 	fields := strings.Fields(input)
@@ -67,7 +69,29 @@ Commands:
   /group <name>     switch channel (e.g. /group random)
   /groups           list channels
   /create <name>    create a new channel
-  /avatar <text>    set ASCII avatar (or preset: cat, bot, fox, star, wave...)
+  /avatar <text>    set avatar (ASCII, preset, or :emoji: alias)
   /help             show this help
+
+Groups sidebar:
+  Ctrl+G            focus group list
+  Enter             switch to highlighted group
+  1-9               quick switch when group list is focused
+
+Chat emojis:
+  Type :smile: :wave: :+1: :tada: etc. (github.com/enescakir/emoji)
+
+Avatar presets:
+  ASCII: ` + avatarHelpASCII() + `
+  Emoji: ` + avatarHelpEmoji() + `
 `)
+}
+
+func avatarHelpASCII() string {
+	picks := []string{"cat", "bot", "star_eyes", "happy", "sad", "wink", "awkward", "shrug", "..."}
+	return strings.Join(picks, ", ")
+}
+
+func avatarHelpEmoji() string {
+	picks := []string{"smile", "wave_e", "heart_e", "party", "thumbsup", "cat_e", "..."}
+	return strings.Join(picks, ", ")
 }

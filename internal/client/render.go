@@ -4,7 +4,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/aluoty/relay/internal/ascii"
+	"github.com/aluoty/relay/internal/avatar"
 )
 
 type state struct {
@@ -17,32 +17,32 @@ type state struct {
 	avatars map[string]string
 }
 
-func newState(addr, self, group, avatar string) *state {
+func newState(addr, self, group, avatarText string) *state {
 	return &state{
 		addr:    addr,
 		self:    self,
 		group:   group,
-		avatar:  avatar,
+		avatar:  avatarText,
 		groups:  []string{group},
-		avatars: map[string]string{self: avatar},
+		avatars: map[string]string{self: avatarText},
 	}
 }
 
-func (s *state) setSelfAvatar(avatar string) {
-	s.avatar = avatar
-	if avatar == "" {
+func (s *state) setSelfAvatar(v string) {
+	s.avatar = v
+	if v == "" {
 		delete(s.avatars, s.self)
 		return
 	}
-	s.avatars[s.self] = avatar
+	s.avatars[s.self] = v
 }
 
-func (s *state) setUserAvatar(name, avatar string) {
-	if avatar == "" {
+func (s *state) setUserAvatar(name, v string) {
+	if v == "" {
 		delete(s.avatars, name)
 		return
 	}
-	s.avatars[name] = avatar
+	s.avatars[name] = v
 }
 
 func (s *state) avatarFor(name string) string {
@@ -57,8 +57,8 @@ func (s *state) setGroups(groups []string) {
 func (s *state) setUsers(users []string, profiles map[string]string) {
 	s.users = append([]string(nil), users...)
 	sort.Strings(s.users)
-	for name, avatar := range profiles {
-		s.setUserAvatar(name, avatar)
+	for name, v := range profiles {
+		s.setUserAvatar(name, v)
 	}
 }
 
@@ -67,7 +67,7 @@ func (s *state) statusText() string {
 }
 
 func formatStatus(addr, self, group string) string {
-	return " [gray]connected to " + addr + " as [green]" + self + "[white] in [#" + group + "]"
+	return " [gray]connected to " + addr + " as [green]" + self + "[white] in [#" + group + "]  [gray]| Ctrl+G groups | 1-9 switch"
 }
 
 func formatGroupLabel(name, current string) string {
@@ -77,16 +77,17 @@ func formatGroupLabel(name, current string) string {
 	return "# " + name
 }
 
-func formatUserLine(name, avatar, self string) string {
-	label := ascii.FormatSpeaker(avatar, name)
+func formatUserLine(name, v, self string) string {
+	label := avatar.FormatSpeaker(v, name)
 	if name == self {
 		return "[green]" + label + "[white]"
 	}
 	return label
 }
 
-func formatChatLine(from, avatar, text, self string) string {
-	speaker := ascii.FormatSpeaker(avatar, from)
+func formatChatLine(from, v, text, self string) string {
+	speaker := avatar.FormatSpeaker(v, from)
+	text = avatar.ParseText(text)
 	if from == self {
 		return "[green]" + speaker + ":[white] " + text
 	}
