@@ -144,4 +144,4 @@ Join/leave events and the user list are not persisted — only chat messages.
 
 ## License
 
-MIT
+See [LICENSE](LICENSE)
