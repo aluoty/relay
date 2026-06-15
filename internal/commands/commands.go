@@ -89,6 +89,7 @@ func HelpFormatted() string {
     [gray]:wave:  :smile:  :+1:  :tada:  :heart:[white]
 
 [yellow]Avatars[white]
+  Presets:        [gray]relay avatars[white]  [gray](or relay avatars --ascii / --emoji)[white]
   ASCII preset:   [gray]/avatar star_eyes[white]   →  [gray]*_*[white]
   Emoji preset:   [gray]/avatar smile[white]       →  😄
   Emoji alias:    [gray]/avatar :cat:[white]

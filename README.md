@@ -4,19 +4,6 @@ Lightweight terminal chat relay built with Go and [tview](https://github.com/riv
 
 One binary runs as a TCP relay server or as a terminal client. Chat is organized into groups (like Discord channels), users get ASCII avatars, messages persist as JSONL, and TLS is optional.
 
-Best used when placed in binary paths, to check(most common available path is /usr/bin):
-```bash
-echo $PATH
-```
-Later after compiling, place the binary into one of those paths, so that 
-```bash
-relay
-```
-can be used, otherwise be in the relay/ directory and use
-```bash
-./relay
-```
-
 ## Requirements
 
 - Go 1.21+
@@ -34,6 +21,15 @@ Or build from source:
 go build -o relay ./cmd/relay
 ```
 
+To run `relay` from anywhere, put the binary on your `PATH` (for example `/usr/local/bin` or `~/go/bin` after `go install`):
+
+```bash
+echo "$PATH"
+cp relay /usr/local/bin/   # or another directory on your PATH
+```
+
+From the project directory you can also run `./relay` directly.
+
 ## Quick start
 
 **Terminal 1 — start the server**
@@ -45,56 +41,95 @@ relay server
 **Terminal 2 & 3 — connect clients**
 
 ```bash
-relay connect -name alice -group general -avatar cat
-relay connect -name bob -group random -avatar bot
+relay connect --name alice --group general --avatar cat
+relay connect --name bob --group random --avatar bot
 ```
 
 Type a message and press Enter. Press `Tab` to move between the group list, chat, and user list. Press `Ctrl+C` to quit.
 
-## Commands
+Run `relay --help` anytime for a command summary.
 
-```text
-relay server [flags]
-relay connect [flags]
+## CLI
+
+Long flags use a double dash (`--listen`, `--name`, `--help`). Single-dash long flags like `-name` are rejected with a hint.
+
+| Command | Description |
+|---------|-------------|
+| `relay` | Show usage |
+| `relay --help` / `relay help` | Show help (`-h` also works) |
+| `relay --version` / `relay version` | Print version (`-V` also works) |
+| `relay server [flags]` | Start the relay server |
+| `relay connect [flags]` | Open the terminal client |
+| `relay avatars [flags]` | List built-in avatar presets |
+| `relay help <command>` | Help for a specific command |
+
+Per-command help:
+
+```bash
+relay help server
+relay server --help
+relay connect --help
+relay help avatars
 ```
 
 ### `relay server`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-listen` | `:9000` | Address to listen on |
-| `-groups` | `general,random` | Default channels (comma-separated) |
-| `-history` | `relay.jsonl` | Chat history file (JSONL). Set to empty to disable |
-| `-history-limit` | `500` | Max messages stored and replayed per group |
-| `-tls-cert` | | TLS certificate file |
-| `-tls-key` | | TLS private key file |
+| `--listen` | `:9000` | Address to listen on |
+| `--groups` | `general,random` | Default channels (comma-separated) |
+| `--history` | `relay.jsonl` | Chat history file (JSONL). Set to empty to disable |
+| `--history-limit` | `500` | Max messages stored and replayed per group |
+| `--tls-cert` | | TLS certificate file |
+| `--tls-key` | | TLS private key file |
 
 Examples:
 
 ```bash
-relay server -listen :9000
-relay server -groups general,random,dev
-relay server -history ""                      # no persistence
+relay server
+relay server --listen :9000
+relay server --groups general,random,dev
+relay server --history=""                      # no persistence
+relay server --tls-cert cert.pem --tls-key key.pem
 ```
 
 ### `relay connect`
 
 | Flag | Default | Description |
 |------|---------|-------------|
-| `-addr` | `localhost:9000` | Server address |
-| `-name` | `$USER` | Display name |
-| `-group` | `general` | Initial channel |
-| `-avatar` | | ASCII avatar text or preset name |
-| `-tls` | `false` | Use TLS |
-| `-tls-ca` | | Custom CA bundle (PEM) |
-| `-insecure` | `false` | Skip TLS verification (development only) |
+| `--addr` | `localhost:9000` | Server address |
+| `--name` | `$USER` | Display name |
+| `--group` | `general` | Initial channel |
+| `--avatar` | | ASCII avatar text or preset name |
+| `--tls` | `false` | Use TLS |
+| `--tls-ca` | | Custom CA bundle (PEM) |
+| `--insecure` | `false` | Skip TLS verification (development only) |
 
 Examples:
 
 ```bash
-relay connect -name alice -group general -avatar cat
-relay connect -name bob -group random -avatar "=^..^="
-relay connect -addr chat.example.com:9000 -tls
+relay connect --name alice --group general --avatar cat
+relay connect --name bob --group random --avatar "=^..^="
+relay connect --addr chat.example.com:9000 --tls
+relay connect --tls --insecure
+relay connect --tls --tls-ca ca.pem
+```
+
+### `relay avatars`
+
+List built-in avatar presets with previews. Useful before connecting or when picking an in-chat `/avatar` preset.
+
+| Flag | Description |
+|------|-------------|
+| `--ascii` | List ASCII presets only |
+| `--emoji` | List emoji presets only |
+
+Examples:
+
+```bash
+relay avatars
+relay avatars --ascii
+relay avatars --emoji
 ```
 
 ## In-chat commands
@@ -118,6 +153,12 @@ relay connect -addr chat.example.com:9000 -tls
 | Leave sidebar | `Esc` — always returns to message input |
 
 ### Avatars (ASCII + emoji)
+
+Browse presets from the shell:
+
+```bash
+relay avatars
+```
 
 Set a custom ASCII avatar:
 
@@ -188,14 +229,14 @@ openssl req -x509 -newkey rsa:2048 \
 Run the server with TLS:
 
 ```bash
-relay server -tls-cert cert.pem -tls-key key.pem
+relay server --tls-cert cert.pem --tls-key key.pem
 ```
 
 Connect with TLS:
 
 ```bash
-relay connect -tls -insecure          # self-signed cert
-relay connect -tls -tls-ca ca.pem     # custom CA
+relay connect --tls --insecure          # self-signed cert
+relay connect --tls --tls-ca ca.pem     # custom CA
 ```
 
 ## Project layout
@@ -203,6 +244,7 @@ relay connect -tls -tls-ca ca.pem     # custom CA
 ```text
 cmd/relay/          CLI entrypoint
 internal/
+  cli/              command-line parsing and help
   avatar/           ASCII + emoji avatars and text parsing
   client/           tview terminal client
   commands/         slash-command parsing
@@ -240,7 +282,7 @@ Example session:
 
 ## Persistence
 
-When `-history` is set (default: `relay.jsonl`), chat messages are appended with their group id and replayed when a client joins or switches to that group.
+When `--history` is set (default: `relay.jsonl`), chat messages are appended with their group id and replayed when a client joins or switches to that group.
 
 Join/leave events, user lists, and group lists are not persisted.
 
