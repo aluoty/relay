@@ -78,7 +78,7 @@ func HelpFormatted() string {
 
 [yellow]Navigation[white]
   [green]Ctrl+G[white]     focus group list  [gray](toggle — press again to return)[white]
-  [green]Esc[white]         return to message input
+  [green]Esc[white]         back to chat  [gray](from groups/users sidebar)[white]
   [green]Tab[white]         cycle input → groups → users → input
   [green]Enter[white]       send message  [gray](or switch group when list focused)[white]
   [green]1-9[white]         quick group switch  [gray](when group list focused)[white]

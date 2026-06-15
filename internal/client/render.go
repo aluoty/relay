@@ -66,12 +66,16 @@ func (s *state) statusText() string {
 }
 
 func formatStatus(addr, self, group string) string {
-	return " [gray]connected to " + escapeTview(addr) + " as [green]" + escapeTview(self) +
-		"[white] in [#" + escapeTview(group) + "]  [gray]| Ctrl+G groups | Esc chat"
+	return " [gray]" + escapeTview(addr) + " · [green]" + escapeTview(self) +
+		"[white] · [#" + escapeTview(group) + "]  [gray]| Ctrl+G groups · Tab sidebar · /help"
 }
 
 func formatGroupsStatus() string {
-	return " [yellow]groups[white]  [gray]Enter switch · 1-9 quick · Esc back to chat · Ctrl+G toggle"
+	return " [yellow]groups[white]  [gray]Enter switch · 1-9 quick · Esc chat · Ctrl+G toggle"
+}
+
+func formatUsersStatus() string {
+	return " [yellow]users[white]  [gray]Tab cycle · Esc chat"
 }
 
 func formatGroupLabel(name, current string) string {
